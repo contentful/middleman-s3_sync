@@ -8,10 +8,11 @@ module Middleman
 
       include Status
 
-      def initialize(resource, partial_s3_resource)
+      def initialize(resource, partial_s3_resource, exclude = {})
         @resource = resource
         @path = resource ? resource.destination_path : partial_s3_resource.key
         @partial_s3_resource = partial_s3_resource
+        @exclude = exclude
       end
 
       def s3_resource
@@ -139,7 +140,9 @@ module Middleman
                         :ignored
                       end
                     elsif local? && remote?
-                      if options.force
+                      if excluded_remotely?
+                        :ignored
+                      elsif options.force
                         :updated
                       elsif not metadata_match?
                         :updated
@@ -163,6 +166,8 @@ module Middleman
                       :new
                     elsif remote? && redirect?
                       :ignored
+                    elsif remote? && excluded_remotely?
+                      :ignored
                     elsif remote?
                       :deleted
                     else
@@ -172,6 +177,11 @@ module Middleman
 
       def local?
         File.exist?(local_path) && resource
+      end
+
+      def excluded_remotely?
+        excludes = @exclude[:remote] || []
+        excludes.find {|exclude| remote_path =~ exclude}
       end
 
       def remote?
